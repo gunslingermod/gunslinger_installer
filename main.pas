@@ -60,7 +60,7 @@ var
   MainForm: TMainForm;
 
 implementation
-uses FastCrc, Localizer, registry, LazUTF8, userltxdumper;
+uses FastCrc, Localizer, registry, LazUTF8, userltxdumper, packer;
 
 {$R *.lfm}
 
@@ -345,10 +345,13 @@ function PreparePathForFile(filepath:string):boolean;
 begin
   result:=false;
   while (length(filepath)>0) and (filepath[length(filepath)]<>'\') and (filepath[length(filepath)]<>'/') do begin
-   filepath:=leftstr(filepath, length(filepath)-1);
+    filepath:=leftstr(filepath, length(filepath)-1);
   end;
 
-  if length(filepath)<=0 then exit;
+  if length(filepath)<=0 then begin
+     result:=true;
+     exit;
+  end;
   result:=ForceDirectories(filepath);
 end;
 
@@ -485,7 +488,15 @@ begin
      _game_dir:=edit_path.Text;
      SwitchToStage(STAGE_INSTALL);
   end else if (_stage = STAGE_BAD) or (_stage=STAGE_OK) then begin
-     Application.Terminate();
+    Application.Terminate();
+  end else if (_stage = STAGE_PACKING) then begin
+    if BundleToInstaller(edit_path.Text, Application.ExeName) then begin
+      Application.MessageBox(PAnsiChar(LocalizeString('packing_completed')), '', MB_OK);
+      SwitchToStage(STAGE_OK);
+    end else begin
+      _bad_msg:='err_unk';
+      SwitchToStage(STAGE_BAD);
+    end;
   end;
 end;
 
@@ -634,31 +645,34 @@ var
 begin
   if (_stage = STAGE_INTEGRITY) and (_cfg = nil) then begin
     timer1.Enabled:=false;
-    assignfile(_bundle, 'sample_bundle');
+
+    assignfile(_bundle, Application.ExeName);
     valid_bundle:=false;
     cfg:=nil;
     try
+      FileMode:=fmOpenRead;
       reset(_bundle, 1);
       cfg:=GetMainConfigFromBundle(_bundle);
-      build_id:=cfg.ReadString(MAIN_SECTION, BUILD_ID_PARAM, '');
-      if length(build_id) > 0 then begin
-        self.Caption:=self.Caption+' ('+build_id+')';
+      if cfg <> nil then begin
+        build_id:=cfg.ReadString(MAIN_SECTION, BUILD_ID_PARAM, '');
+        if length(build_id) > 0 then begin
+          self.Caption:=self.Caption+' ('+build_id+')';
+        end;
+        valid_bundle:=ValidateBundle(_bundle, cfg);
+      end else begin
+        valid_bundle:=false;
       end;
-
-      valid_bundle:=ValidateBundle(_bundle, cfg);
     except
       valid_bundle:=false;
     end;
 
     if valid_bundle then begin
-      // Go to installer state machine
       _cfg:=cfg;
       SwitchToStage(STAGE_SELECT_DIR);
     end else if (cfg=nil) then begin
       FreeAndNil(cfg);
       CloseFile(_bundle);
       SwitchToStage(STAGE_PACKING);
-      _bad_msg:='err_cant_read_bundle_content';
     end else begin
       Application.MessageBox(PAnsiChar(LocalizeString('err_bundle_corrupt')),PAnsiChar(LocalizeString('err_caption')), MB_OK);
       FreeAndNil(cfg);
@@ -747,11 +761,11 @@ begin
 
     STAGE_PACKING: begin
       assert(_stage = STAGE_INIT);
-      lbl_hint.Caption:=LocalizeString('stage_integrity_check');
+      lbl_hint.Caption:=LocalizeString('stage_packing_select');
       lbl_hint.Show;
       btn_next.Caption:=LocalizeString('btn_next');
       btn_next.Show();
-      edit_path.Text:=GetCurrentDir()+;
+      edit_path.Text:=GetCurrentDir();
       edit_path.Show;
       btn_elipsis.Show();
     end;

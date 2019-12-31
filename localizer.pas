@@ -61,6 +61,8 @@ begin
     if locale = RUS_ID then result:='Идет завершение установки и откат изменений, подождите...' else result:='Stopping installation, please wait...';
   end else if str = 'stage_packing_select'  then begin
     if locale = RUS_ID then result:='Выберите директорию для упаковки' else result:='Select directory for packing';
+  end else if str = 'packing_completed'  then begin
+    if locale = RUS_ID then result:='Запаковка успешно завершена' else result:='Packing successful';
   end;
 end;
 

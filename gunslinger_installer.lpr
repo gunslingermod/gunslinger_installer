@@ -7,12 +7,13 @@ uses
   cthreads,
   {$ENDIF}{$ENDIF}
   Interfaces, // this includes the LCL widgetset
-  Forms, main
+  Forms, main, packer
   { you can add units after this };
 
 {$R *.res}
 
 begin
+  Application.Title:='GUNSLINGER Mod Installer';
   RequireDerivedFormResource:=True;
   Application.Scaled:=True;
   Application.Initialize;
