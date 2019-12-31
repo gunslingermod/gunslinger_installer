@@ -750,6 +750,8 @@ begin
 end;
 
 procedure TMainForm.SwitchToStage(s: TInstallStage);
+var
+  dir:string;
 begin
   HideControls();
   case s of
@@ -774,7 +776,11 @@ begin
       assert(_stage = STAGE_INTEGRITY);
       btn_next.Caption:=LocalizeString('btn_next');
       btn_next.Show();
-      edit_path.Text:=GetCurrentDir()+'\GUNSLINGER_Mod\';
+      dir:=GetCurrentDir();
+      if (length(dir)>0) and (dir[length(dir)]<>'\') and (dir[length(dir)]<>'/') then begin
+        dir:=dir+'\';
+      end;
+      edit_path.Text:=dir+'GUNSLINGER_Mod\';
       edit_path.Show;
       lbl_hint.Caption:=LocalizeString('hint_select_install_dir');
       lbl_hint.Show();
