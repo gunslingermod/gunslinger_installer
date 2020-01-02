@@ -52,7 +52,7 @@ begin
   end else if str = 'exit_installer'  then begin
     if locale = RUS_ID then result:='Выход' else result:='Exit';
   end else if str = 'success_install'  then begin
-    if locale = RUS_ID then result:='Установка успешно завершена' else result:='The mod has been successfully installer';
+    if locale = RUS_ID then result:='Установка успешно завершена' else result:='The mod has been successfully installed';
   end else if str = 'confirm_close'  then begin
     if locale = RUS_ID then result:='Выйти из установщика?' else result:='Exit installer?';
   end else if str = 'user_cancelled'  then begin
