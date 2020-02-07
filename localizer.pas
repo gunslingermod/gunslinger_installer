@@ -63,6 +63,8 @@ begin
     if locale = RUS_ID then result:='Выберите директорию для упаковки' else result:='Select directory for packing';
   end else if str = 'packing_completed'  then begin
     if locale = RUS_ID then result:='Запаковка успешно завершена' else result:='Packing successful';
+  end else if str = 'gamedir_not_supported'  then begin
+    if locale = RUS_ID then result:='Директория не подходит для установки мода. Пожалуйста, выберите другую.' else result:='The mod can''t be installed to the selected directory. Please select another location.';
   end;
 end;
 

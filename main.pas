@@ -407,7 +407,10 @@ var
   res:integer;
 begin
   result:=true;
-  if not DirectoryExists(dir) then begin
+  if IsGameInstalledInDir(dir) then begin
+    Application.MessageBox(PAnsiChar(LocalizeString('gamedir_not_supported')), PAnsiChar(LocalizeString('err_caption')), MB_OK or MB_ICONERROR);
+    result:=false;
+  end else if not DirectoryExists(dir) then begin
     res:=Application.MessageBox(PAnsiChar(LocalizeString('confirm_dir_unexist')), PAnsiChar(LocalizeString('msg_confirm')), MB_YESNO or MB_ICONQUESTION);
     result:= res=IDYES;
   end else if not DirectoryIsEmpty(dir) then begin
