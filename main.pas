@@ -291,7 +291,7 @@ begin
     assignfile(f, USERLTX_PATH);
     try
       rewrite(f);
-      DumpUserLtx(f, screen.Width, screen.Height);
+      DumpUserLtx(f, screen.Width, screen.Height, true);
       closefile(f);
       result:=true;
     except
