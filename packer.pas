@@ -77,6 +77,7 @@ var
   cfg_offset:int64;
 
   arr:TFileData;
+  curdate:TDate;
 begin
   result:=false;
   newname:=installer+'_';
@@ -98,9 +99,10 @@ begin
     cur_file_id:=0;
     config:='';
     if RecurseAdd(folder, '', cur_file_id, dstfile, config) then begin
+      curdate:=Now();
       cfg_offset:=FileSize(dstfile);
       config:=config+'[main]'+chr($0d)+chr($0a);
-      config:=config+'build_id=BUILD_'+{$INCLUDE %DATE}+chr($0d)+chr($0a);
+      config:=config+'build_id=Build '+DateToStr(curdate)+chr($0d)+chr($0a);
       config:=config+'files_count='+inttostr(cur_file_id)+chr($0d)+chr($0a);
       BlockWrite(dstfile, config[1], length(config));
       BlockWrite(dstfile, cfg_offset, sizeof(cfg_offset));
