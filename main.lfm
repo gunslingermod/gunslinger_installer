@@ -3,7 +3,7 @@ object MainForm: TMainForm
   Height = 424
   Top = 140
   Width = 614
-  BorderStyle = bsSizeToolWin
+  BorderStyle = bsToolWindow
   Caption = 'GUNSLINGER Mod Installer'
   ClientHeight = 424
   ClientWidth = 614
