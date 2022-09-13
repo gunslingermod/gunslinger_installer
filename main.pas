@@ -9,7 +9,7 @@ uses
   ComCtrls, IniFiles;
 
 type
-  TInstallStage= (STAGE_INIT, STAGE_INTEGRITY, STAGE_PACKING, STAGE_SELECT_DIR, STAGE_SELECT_GAME_DIR, STAGE_INSTALL, STAGE_CONFIG, STAGE_OK, STAGE_BAD);
+  TInstallStage= (STAGE_INIT, STAGE_INTEGRITY, STAGE_PACKING, STAGE_PACKING_SUCCESS, STAGE_SELECT_DIR, STAGE_SELECT_GAME_DIR, STAGE_INSTALL, STAGE_CONFIG, STAGE_OK, STAGE_BAD);
   StringsArr = array of string;
 
   TCopyThreadData = record
@@ -26,9 +26,11 @@ type
   TMainForm = class(TForm)
     btn_elipsis: TButton;
     btn_next: TButton;
+    check_update: TCheckBox;
     edit_path: TEdit;
     Image1: TImage;
     lbl_hint: TLabel;
+    lbl_checkupdate: TLabel;
     progress: TProgressBar;
     SelectDirectoryDialog1: TSelectDirectoryDialog;
     Timer1: TTimer;
@@ -51,6 +53,8 @@ type
     _th_handle:THandle;
 
     procedure SwitchToStage(s:TInstallStage);
+
+    function GetUpdaterPath():string;
 
   public
 
@@ -339,6 +343,14 @@ begin
   a[i]:=s;
 end;
 
+function AddTerminalSlash(path:string):string;
+begin
+  if (length(path)>0) and (path[length(path)]<>'\') and (path[length(path)]<>'/') then begin
+    path:=path+'\';
+  end;
+  result:=path;
+end;
+
 function IsGameInstalledInDir(dir:string):boolean;
 var
   files:StringsArr;
@@ -357,9 +369,7 @@ begin
   PushToArray(files, 'levels\levels.db0');
   PushToArray(files, 'levels\levels.db1');
 
-  if (length(dir)>0) and (dir[length(dir)]<>'\') and (dir[length(dir)]<>'/') then begin
-    dir:=dir+'\';
-  end;
+  dir:=AddTerminalSlash(dir);
 
   for i:=0 to length(files)-1 do begin
     filename:=dir+files[i];
@@ -432,18 +442,20 @@ begin
   end;
 end;
 
-function ConfirmDirForInstall(dir:string):boolean;
+function ConfirmDirForInstall(var dir:string; var gamedir:string; skip_unexist:boolean):boolean;
 var
   res:integer;
 begin
   result:=true;
   if IsGameInstalledInDir(dir) then begin
-    Application.MessageBox(PAnsiChar(LocalizeString('gamedir_not_supported')), PAnsiChar(LocalizeString('err_caption')), MB_OK or MB_ICONERROR);
-    result:=false;
-  end else if not DirectoryExists(dir) then begin
+    dir:=AddTerminalSlash(dir);
+    gamedir:=dir;
+    dir:=dir+'GUNSLINGER_Mod\';
+    result:=ConfirmDirForInstall(dir, gamedir, true);
+  end else if not skip_unexist and not DirectoryExists(dir) then begin
     res:=Application.MessageBox(PAnsiChar(LocalizeString('confirm_dir_unexist')), PAnsiChar(LocalizeString('msg_confirm')), MB_YESNO or MB_ICONQUESTION);
     result:= res=IDYES;
-  end else if not DirectoryIsEmpty(dir) then begin
+  end else if DirectoryExists(dir) and not DirectoryIsEmpty(dir) then begin
     res:=Application.MessageBox(PAnsiChar(LocalizeString('confirm_dir_nonempty')), PAnsiChar(LocalizeString('msg_confirm')), MB_YESNO or MB_ICONQUESTION);
     result:= res=IDYES;
   end;
@@ -509,23 +521,41 @@ begin
 end;
 
 procedure TMainForm.btn_nextClick(Sender: TObject);
+var
+  gamedir, updater_path:string;
+  pi:TPROCESSINFORMATION;
+  si:TSTARTUPINFO;
 begin
-  if (length(edit_path.Text)>0) and (edit_path.Text[length(edit_path.Text)]<>'\') and (edit_path.Text[length(edit_path.Text)]<>'/') then begin
-    edit_path.Text:=edit_path.Text+'\';
-  end;
+  edit_path.Text:=AddTerminalSlash(edit_path.Text);
 
-  if (_stage = STAGE_SELECT_DIR) and (ConfirmDirForInstall(edit_path.Text)) then begin
+  if (_stage = STAGE_SELECT_DIR) then begin
+    gamedir:='';
     _mod_dir:=edit_path.Text;
-     SwitchToStage(STAGE_SELECT_GAME_DIR);
+    if ConfirmDirForInstall(_mod_dir, gamedir, false) then begin
+      if length(gamedir)=0 then begin
+        SwitchToStage(STAGE_SELECT_GAME_DIR);
+      end else begin
+        _game_dir:=gamedir;
+        SwitchToStage(STAGE_INSTALL);
+      end;
+    end;
   end else if (_stage = STAGE_SELECT_GAME_DIR) and (ConfirmGameDir(edit_path.Text)) then begin
      _game_dir:=edit_path.Text;
      SwitchToStage(STAGE_INSTALL);
-  end else if (_stage = STAGE_BAD) or (_stage=STAGE_OK) then begin
+  end else if (_stage = STAGE_BAD) or (_stage=STAGE_OK) or (_stage=STAGE_PACKING_SUCCESS) then begin
+    if (_stage=STAGE_OK) and check_update.Checked then begin
+      updater_path:=GetUpdaterPath();
+      FillMemory(@si, sizeof(si),0);
+      FillMemory(@pi, sizeof(pi),0);
+      si.cb:=sizeof(si);
+      CreateProcess(PAnsiChar(updater_path), PAnsiChar(updater_path), nil, nil, false, 0, nil, nil, si, pi);
+      CloseHandle(pi.hProcess);
+      CloseHandle(pi.hThread);
+    end;
     Application.Terminate();
   end else if (_stage = STAGE_PACKING) then begin
     if BundleToInstaller(edit_path.Text, Application.ExeName) then begin
-      Application.MessageBox(PAnsiChar(LocalizeString('packing_completed')), '', MB_OK);
-      SwitchToStage(STAGE_OK);
+      SwitchToStage(STAGE_PACKING_SUCCESS);
     end else begin
       _bad_msg:='err_unk';
       SwitchToStage(STAGE_BAD);
@@ -538,7 +568,7 @@ var
   res:integer;
   dis_tmr:boolean;
 begin
-  if (_stage=STAGE_OK) or (_stage=STAGE_BAD) then begin
+  if (_stage=STAGE_OK) or (_stage=STAGE_BAD) or (_stage=STAGE_PACKING_SUCCESS) then begin
     exit;
   end;
 
@@ -574,7 +604,10 @@ begin
   lbl_hint.Hide;
   btn_elipsis.Hide;
   btn_next.Hide;
-  progress.hide;
+  progress.Hide;
+  lbl_checkupdate.Hide;
+  check_update.Hide;
+  check_update.Checked:=false;
 end;
 
 procedure CopierThread(frm:TMainForm); stdcall;
@@ -805,14 +838,19 @@ begin
       btn_elipsis.Show();
     end;
 
+    STAGE_PACKING_SUCCESS: begin
+      btn_next.Caption:=LocalizeString('exit_installer');
+      btn_next.Show();
+      lbl_hint.Caption:=LocalizeString('packing_completed');
+      lbl_hint.Show();
+    end;
+
     STAGE_SELECT_DIR: begin
       assert(_stage = STAGE_INTEGRITY);
       btn_next.Caption:=LocalizeString('btn_next');
       btn_next.Show();
       dir:=GetCurrentDir();
-      if (length(dir)>0) and (dir[length(dir)]<>'\') and (dir[length(dir)]<>'/') then begin
-        dir:=dir+'\';
-      end;
+      dir:=AddTerminalSlash(dir);
       edit_path.Text:=dir+'GUNSLINGER_Mod\';
       edit_path.Show;
       lbl_hint.Caption:=LocalizeString('hint_select_install_dir');
@@ -854,6 +892,13 @@ begin
       btn_next.Show();
       lbl_hint.Caption:=LocalizeString('success_install');
       lbl_hint.Show();
+
+      if length(GetUpdaterPath())>0 then begin
+        lbl_checkupdate.Caption:=LocalizeString('run_updater');
+        lbl_checkupdate.Show();
+        check_update.Checked:=true;
+        check_update.Show();
+      end;
     end;
 
     STAGE_BAD: begin
@@ -865,6 +910,17 @@ begin
     end;
   end;
   _stage:=s;
+end;
+
+function TMainForm.GetUpdaterPath(): string;
+begin
+  result:='';
+  if length(_mod_dir)> 0 then begin
+    result:=_mod_dir+'CheckUpdates.exe';
+    if not FileExists(result) then begin
+      result:='';
+    end;
+  end;
 end;
 
 end.
